@@ -2,6 +2,55 @@
 
 Five local side-channel experiments on an Apple M4 Max (36 GB, macOS 15.7.3). Four produced usable signals; one did not. Everything runs as an unprivileged user process, with no kernel extension, root access, or debugging entitlement.
 
+## Provenance, difficulty, and implications
+
+"Internet assistance" means external code or written instructions used beyond general background knowledge. "Source" distinguishes code written for this project from code adapted from an existing project.
+
+### 1. L1/L2 cache contention
+
+| Attribute | Detail |
+|---|---|
+| Internet assistance | **None** — standard contention technique; implementation and calibration written locally. |
+| Source | **Original code** (`demos/poc1_cache_contention.c`), sharing only the local timing helpers in `common.h`. |
+| Difficulty to execute | **Moderate** — needs two-process synchronization, line selection, and threshold calibration; sensitive to scheduling and frequency changes. |
+| Implications | Confirms cross-process cache contention on M4 Max. It is a local covert channel, not a privilege-boundary bypass; bandwidth is low and the result is not novel. |
+
+### 2. SLC occupancy
+
+| Attribute | Detail |
+|---|---|
+| Internet assistance | **None** — public concept; all code and measurements are local. |
+| Source | **Original code** (`demos/poc2_slc_occupancy.c`). |
+| Difficulty to execute | **High** — the SLC is opaque, large working sets are required, timing is noisy, and sender and receiver need frame synchronization. |
+| Implications | Shows SLC occupancy is observable across processes/clusters on M4 Max. This is a shared-resource leakage and covert-channel issue, not a direct data leak; prior art includes SLAC and the USENIX '26 M4 eviction-set study. |
+
+### 3. SMC power telemetry
+
+| Attribute | Detail |
+|---|---|
+| Internet assistance | **Light** — uses the publicly documented/reverse-engineered AppleSMC ABI and `PSTR` key; sender and receiver logic written locally. |
+| Source | **Original code** (`demos/poc3_smc_power.c`); AppleSMC is a public but undocumented interface. |
+| Difficulty to execute | **Moderate** — the IOKit call-struct ABI is undocumented and easy to get wrong; the sensor updates at roughly 1 Hz, forcing 4 s slots. |
+| Implications | Unprivileged software can read package power and run a low-bandwidth covert channel. This is known on M1/M2 (Power of Telemetry); the M4 result is incremental. The rate is low, but it matters for shared and air-gapped threat models. |
+
+### 4. Spectre v1
+
+| Attribute | Detail |
+|---|---|
+| Internet assistance | **Heavy** — exploit core, eviction sets, and timer come from the MIT-licensed Branch Different repository. |
+| Source | **Adapted** from Branch Different (CISPA, commit `9a62245`) plus local changes to `config.h`, `main.c`, `spectre.c`, and `leak.sh`, documented below. |
+| Difficulty to execute | **High** — upstream fails on M4 because of prefetcher, TAGE, and eviction-set behavior; required randomized probing, argmin selection, and 5-run voting. Per-run success remains 60–70 %. |
+| Implications | Spectre v1 remains demonstrable on M4 Max in a local, cooperative setting. There is no new vulnerability: the class is known and the demo crosses no isolation boundary by itself. DIT and similar mitigations do not stop this PoC. |
+
+### 5. DMP
+
+| Attribute | Detail |
+|---|---|
+| Internet assistance | **Light** — concept taken from public DMP research; the probe was written locally. |
+| Source | **Original probe**; no code reused. |
+| Difficulty to execute | **High** — a negative result is hard to establish: the prefetcher is opaque and DIT may mask the signal, so "not present" is difficult to distinguish from "probe inadequate". |
+| Implications | No exploitable DMP signal was observed on this M4 Max under these conditions. This is weak negative evidence, not proof of absence, and has no direct security implication beyond that. |
+
 **Scope:** this is a reproduction and engineering effort, not a claim of new attack research. No new attack primitive is claimed, and no "first on M4" claim is made. See [Novelty and prior art](#novelty-and-prior-art).
 
 **Hardware note:** the machine was initially described as an M5 Max. On-host identification reports **Apple M4 Max** (`sysctl -n machdep.cpu.brand_string`). All results below are from the M4 Max; no M5 hardware was tested.
