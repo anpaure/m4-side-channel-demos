@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs the Branch Different Spectre v1 PoC three times and majority-votes each byte.
+# Runs the Branch Different Spectre v1 PoC five times and majority-votes each byte.
 cd "$(dirname "$0")"
 out=$(for i in 1 2 3 4 5; do
     ./spectre/spectre 2>/dev/null | awk '/---- RESULT ----/{getline; print; exit}'

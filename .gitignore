@@ -1,2 +1,3 @@
 spectre_m4/spectre/spectre
 *.o
+spectre_m4/covert_channel/shared
